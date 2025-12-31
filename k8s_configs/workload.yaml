@@ -1,0 +1,85 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: b2b-inbound-router-service-{ENV}
+  namespace: KOB_NAMESPACE
+spec:
+  replicas: POD_REPLICAS
+  selector:
+    matchLabels:
+      app: b2b-inbound-router-service-{ENV}
+  template:
+    metadata:
+      labels:
+        app: b2b-inbound-router-service-{ENV}
+    spec:
+      shareProcessNamespace: true
+      containers:
+      - name: b2b-inbound-router-service-{ENV}
+        image: harbor.dell.com/golf-images/b2b-inbound-router-service:{BUILD_VERSION}
+        imagePullPolicy: Always
+        securityContext:
+            runAsNonRoot: true
+            runAsUser: 32090
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: ["ALL"]
+            seccompProfile:
+              type: RuntimeDefault
+        ports:
+          - containerPort: 8000
+        resources:
+          requests:
+            cpu: CPU_REQUEST
+            memory: MEMORY_REQUEST
+          limits:
+            cpu: CPU_LIMIT
+            memory: MEMORY_LIMIT
+        volumeMounts:
+          - name: golf-common-config-{ENV}
+            mountPath: /app/services/config
+          - name: golf-common-secret-{ENV}
+            mountPath: /app/services/secrets
+            readOnly: true
+        env:
+            - name: ENV
+              value: {ENV}
+            - name: ENV_FILE
+              value: /app/services/config/application.properties
+            - name: ROOT_CA_PATH
+              value: /app/services/secrets/chain.pem
+      - name: config-reloader
+        image: harbor.dell.com/golf-images/configmap-reloader:{BUILD_VERSION}
+        imagePullPolicy: Always
+        securityContext:
+            runAsNonRoot: true
+            runAsUser: 32090
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: ["ALL"]
+            seccompProfile:
+              type: RuntimeDefault
+        resources:
+          requests:
+            cpu: 10m
+            memory: 32Mi
+          limits:
+            cpu: 200m
+            memory: 64Mi
+        volumeMounts:
+          - name: golf-common-config-{ENV}
+            mountPath: /config
+            readOnly: true
+          - name: golf-common-secret-{ENV}
+            mountPath: /secrets
+            readOnly: true
+        env:
+          - name: TARGET_PROCESS_NAME
+            value: b2b-inbound-router-service
+      volumes:
+      - name: golf-common-config-{ENV}
+        configMap:
+          name: golf-common-config-{ENV}
+      - name: golf-common-secret-{ENV}
+        secret:
+          secretName: golf-common-secret-{ENV}

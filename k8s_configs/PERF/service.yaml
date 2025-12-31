@@ -1,0 +1,61 @@
+---
+kind: Service
+apiVersion: v1
+metadata:
+  name: b2b-inbound-router-service-{ENV}
+  namespace: KOB_NAMESPACE
+  labels:
+    app: b2b-inbound-router-service-{ENV}
+spec:
+  selector:
+    app: b2b-inbound-router-service-{ENV}
+  ports:
+  - name: webport
+    port: 80
+    targetPort: 8000
+  type: ClusterIP
+---
+apiVersion: k8s.nginx.org/v1
+kind: VirtualServer
+metadata:
+  name: b2b-inbound-router-service-{ENV}-tls-vs
+  namespace: KOB_NAMESPACE
+spec:
+  host: b2binboundrouterservice.KOB_NAMESPACE-KOB_CLUSTER.kob.dell.com
+  ingressClassName: KOB_INGRESS
+  tls:
+    secret: ""
+    redirect:
+      enable: true
+  upstreams:
+  - name: b2b-inbound-router-service-{ENV}
+    service: b2b-inbound-router-service-{ENV}
+    port: 80
+    lb-method: round_robin
+  routes:
+  - path: /
+    action:
+      pass: b2b-inbound-router-service-{ENV}
+---
+apiVersion: k8s.nginx.org/v1
+kind: VirtualServer
+metadata:
+  name: b2b-inbound-router-service-gtm-{ENV}-tls-vs
+  namespace: KOB_NAMESPACE
+spec:
+  host: b2binboundrouterservice.GTM_NAMESPACE.kob.dell.com
+  ingressClassName: KOB_INGRESS
+  tls:
+    secret: ""
+    redirect:
+      enable: true
+  upstreams:
+  - name: b2b-inbound-router-service-{ENV}
+    service: b2b-inbound-router-service-{ENV}
+    port: 80
+    lb-method: round_robin
+  routes:
+  - path: /
+    action:
+      pass: b2b-inbound-router-service-{ENV}
+
